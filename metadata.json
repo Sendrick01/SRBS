@@ -1,0 +1,9 @@
+{
+  "name": "Smart Rental Booking System (SRBS)",
+  "description": "A modern rental platform for Uganda featuring 360° VR tours and AR visualization to streamline property viewing and booking.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

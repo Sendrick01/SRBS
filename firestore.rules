@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, email, displayName, phoneNumber, role, photoURL, emailVerified, hasSeenTour, createdAt
+    //
+    // Collection: properties
+    // Fields: id, title, description, rent, location, landlordId, images, vrTourUrl, arModelUrl, status, isPremium, isFeatured, createdAt
+    //
+    // Collection: bookings
+    // Fields: id, propertyId, tenantId, landlordId, checkInDate, checkOutDate, status, totalPrice, depositPaid, escrowStatus, occupied, createdAt, confirmedAt
+    //
+    // Collection: inquiries
+    // Fields: id, userId, userEmail, userRole, subject, message, status, createdAt
+    //
+    // Collection: payments
+    // Fields: id, bookingId, propertyId, tenantId, landlordId, amount, currency, status, type, transactionId, createdAt
+    //
+    // Collection: reviews
+    // Fields: id, propertyId, tenantId, tenantName, tenantPhoto, rating, comment, createdAt
+    //
+    // Collection: notifications
+    // Fields: id, userId, title, message, type, read, createdAt, link
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (request.auth.token.email == "realevrug@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'displayName', 'role', 'emailVerified', 'hasSeenTour']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.displayName is string &&
+             data.role in ['tenant', 'landlord', 'admin'] &&
+             data.emailVerified is bool &&
+             data.hasSeenTour is bool;
+    }
+
+    function isValidProperty(data) {
+      return hasRequiredFields(['title', 'rent', 'location', 'landlordId', 'status', 'isFeatured']) &&
+             data.title is string &&
+             data.rent is number &&
+             data.location is string &&
+             data.landlordId is string &&
+             data.status in ['available', 'rented'] &&
+             data.isFeatured is bool;
+    }
+
+    function isValidBooking(data) {
+      return hasRequiredFields(['propertyId', 'tenantId', 'landlordId', 'checkInDate', 'checkOutDate', 'status', 'depositPaid', 'escrowStatus', 'occupied']) &&
+             data.propertyId is string &&
+             data.tenantId is string &&
+             data.landlordId is string &&
+             data.status in ['pending', 'confirmed', 'cancelled'] &&
+             data.escrowStatus in ['none', 'held', 'released', 'refunded'] &&
+             (!('confirmedAt' in data) || data.confirmedAt is string);
+    }
+
+    function isValidPayment(data) {
+      return hasRequiredFields(['tenantId', 'landlordId', 'amount', 'status', 'type']) &&
+             data.tenantId is string &&
+             data.tenantId == request.auth.uid &&
+             data.landlordId is string &&
+             data.amount is number &&
+             data.status in ['pending', 'completed', 'failed'] &&
+             data.type in ['deposit', 'rent', 'boost'] &&
+             (!('bookingId' in data) || data.bookingId is string) &&
+             (!('propertyId' in data) || data.propertyId is string);
+    }
+
+    function isValidReview(data) {
+      return hasRequiredFields(['propertyId', 'tenantId', 'tenantName', 'rating', 'comment', 'createdAt']) &&
+             data.propertyId is string &&
+             data.tenantId is string &&
+             data.tenantId == request.auth.uid &&
+             data.tenantName is string &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() < 1000;
+    }
+
+    function isValidInquiry(data) {
+      return hasRequiredFields(['userId', 'userEmail', 'userRole', 'subject', 'message', 'status']) &&
+             data.userId is string &&
+             data.userEmail is string &&
+             data.userRole in ['tenant', 'landlord', 'admin'] &&
+             data.subject is string &&
+             data.message is string &&
+             data.status in ['new', 'read', 'replied'];
+    }
+
+    function isValidNotification(data) {
+      return hasRequiredFields(['userId', 'title', 'message', 'type', 'read', 'createdAt']) &&
+             data.userId is string &&
+             data.title is string &&
+             data.message is string &&
+             data.type in ['booking', 'payment', 'system'] &&
+             data.read is bool;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) || isAdmin();
+    }
+
+    match /properties/{propertyId} {
+      allow read: if true;
+      allow create: if isVerified() && isValidProperty(request.resource.data) && request.resource.data.landlordId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.landlordId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.landlordId == request.auth.uid || isAdmin());
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.tenantId || 
+        request.auth.uid == resource.data.landlordId || 
+        isAdmin()
+      );
+      allow create: if isVerified() && isValidBooking(request.resource.data) && request.resource.data.tenantId == request.auth.uid;
+      allow update: if isAuthenticated() && isValidBooking(request.resource.data) && (
+        request.auth.uid == resource.data.tenantId || 
+        request.auth.uid == resource.data.landlordId || 
+        isAdmin()
+      );
+    }
+
+    match /inquiries/{inquiryId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isVerified() && isValidInquiry(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.tenantId || 
+        request.auth.uid == resource.data.landlordId ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && isValidPayment(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isVerified() && isValidReview(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.tenantId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.tenantId == request.auth.uid || isAdmin());
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+  }
+}

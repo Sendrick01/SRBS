@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "role": { "type": "string", "enum": ["tenant", "landlord", "admin"] },
+        "photoURL": { "type": "string", "format": "uri" },
+        "emailVerified": { "type": "boolean" },
+        "hasSeenTour": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "emailVerified", "hasSeenTour"]
+    },
+    "Property": {
+      "title": "Property Listing",
+      "description": "Details of a rental property",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "rent": { "type": "number" },
+        "location": { "type": "string" },
+        "landlordId": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "vrTourUrl": { "type": "string" },
+        "arModelUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "rented"] },
+        "isPremium": { "type": "boolean" },
+        "isFeatured": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "rent", "location", "landlordId", "status", "isFeatured"]
+    },
+    "Booking": {
+      "title": "Property Booking",
+      "description": "A booking request for a property",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "landlordId": { "type": "string" },
+        "checkInDate": { "type": "string", "format": "date-time" },
+        "checkOutDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "totalPrice": { "type": "number" },
+        "depositPaid": { "type": "boolean" },
+        "escrowStatus": { "type": "string", "enum": ["none", "held", "released", "refunded"] },
+        "occupied": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "confirmedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["propertyId", "tenantId", "checkInDate", "checkOutDate", "status", "depositPaid", "escrowStatus", "occupied"]
+    },
+    "Payment": {
+      "title": "Payment Transaction",
+      "description": "Records of payments made by tenants.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "landlordId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "type": { "type": "string", "enum": ["deposit", "rent", "boost"] },
+        "transactionId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "receiptUrl": { "type": "string" }
+      },
+      "required": ["bookingId", "tenantId", "landlordId", "amount", "status", "type"]
+    },
+    "Inquiry": {
+      "title": "User Inquiry",
+      "description": "A support inquiry or contact form submission",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "userRole": { "type": "string", "enum": ["tenant", "landlord", "admin"] },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "read", "replied"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "propertyId": { "type": "string" },
+        "landlordId": { "type": "string" }
+      },
+      "required": ["userId", "userEmail", "userRole", "subject", "message", "status"]
+    },
+    "Review": {
+      "title": "Property Review",
+      "description": "A review left by a tenant for a property",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "tenantName": { "type": "string" },
+        "tenantPhoto": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["propertyId", "tenantId", "tenantName", "rating", "comment", "createdAt"]
+    },
+    "Notification": {
+      "title": "User Notification",
+      "description": "Real-time notifications for users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["booking", "payment", "system"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "link": { "type": "string" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Property listings"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Property bookings"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": "Inquiry",
+      "description": "User inquiries"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Payment transactions"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Property reviews"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    }
+  }
+}
