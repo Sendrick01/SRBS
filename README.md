@@ -10,7 +10,8 @@ Project Title:
 
 ​SETUP INSTRUCTIONS 
 
-​Prerequisites
+​Prerequisites.  
+
 ​Install Node.js, MySQL Server (or XAMPP), and a modern web browser.
 ​Steps to Run Locally
 
